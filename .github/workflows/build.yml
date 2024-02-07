@@ -18,19 +18,3 @@ jobs:
           name: UEVR
           path: ${{github.workspace}}/UEVR/bin/Release/net6.0-windows/win-x64/publish/*.*
           if-no-files-found: error
-
-      - name: Compress artifacts
-        run: |
-            echo ${{github.sha}} > ${{github.workspace}}/revision.txt
-            7z a ${{github.workspace}}/${{matrix.target}}.zip ${{github.workspace}}/build/bin/${{matrix.target}}/*
-            7z a ${{github.workspace}}/${{matrix.target}}.zip ${{github.workspace}}/revision.txt
-        
-      - name: Create Release
-        uses: ncipollo/release-action@6c75be85e571768fa31b40abf38de58ba0397db5
-        with:
-            repo: uevr-frontend
-            owner: joeyhodge
-            name: ${{format('uevr-frontend {0} ({1})', github.run_number, github.sha)}}
-            tag: ${{format('nightly-{0}-{1}', github.run_number, github.sha)}}
-            artifacts: "${{github.workspace}}/${{matrix.target}}.zip,${{github.workspace}}/${{matrix.target}}.zip.sha256"
-            makeLatest: true
