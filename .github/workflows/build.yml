@@ -21,11 +21,11 @@ jobs:
           
       - name: Create Release
         if: github.ref == 'refs/heads/master'
-        uses: ncipollo/release-action@v1.13.0
+        uses: ncipollo/release-action@v1.14.0
         with:
             repo: uevr-frontend
             owner: joeyhodge
             name: ${{format('UEVR frontend {0} ({1})', github.run_number, github.sha)}}
             tag: ${{format('frontend-{0}-{1}', github.run_number, github.sha)}}
-            artifacts: "${{github.workspace}}/${{matrix.target}}.zip,${{github.workspace}}/${{matrix.target}}.zip.sha256"
+            artifacts: "${{github.workspace}}.zip,${{github.workspace}}/${{matrix.target}}.zip.sha256"
             makeLatest: true
