@@ -27,5 +27,5 @@ jobs:
             owner: joeyhodge
             name: ${{format('UEVR frontend {0} ({1})', github.run_number, github.sha)}}
             tag: ${{format('frontend-{0}-{1}', github.run_number, github.sha)}}
-            artifacts: "${{github.workspace}}.zip,${{github.workspace}}/${{matrix.target}}.zip.sha256"
+            artifacts: "${{github.workspace}}/${{matrix.target}}.zip,${{github.workspace}}/${{matrix.target}}.zip.sha256"
             makeLatest: true
