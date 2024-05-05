@@ -66,7 +66,7 @@
                                 </materialDesign:PackIcon>
                             </StackPanel>
                         </MenuItem.Header>
-                        <TextBlock TextWrapping="Wrap" Text="Author: praydog"/>
+                        <TextBlock TextWrapping="Wrap" Text="Author: joeyhodge"/>
 
                         <MenuItem Header="_Documentation" Click="Documentation_Clicked">
                         </MenuItem>
@@ -120,7 +120,7 @@
                     </MenuItem>
                 </Menu>
                 <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Bottom">
-                    <TextBlock TextWrapping="Wrap" Text="Author: praydog"/>
+                    <TextBlock TextWrapping="Wrap" Text="Author: joeyhodge"/>
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Bottom" Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Bottom">
                     <Button Margin="5" Click="GitHub_Clicked" Background="Transparent" BorderThickness="0,0,0,0" RenderOptions.BitmapScalingMode="HighQuality" Height="40">
