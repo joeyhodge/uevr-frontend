@@ -82,7 +82,11 @@ namespace UEVR {
         [Description("Synced Sequential")]
         SyncedSequential = 1,
         [Description("Alternating/AFR")]
-        Alternating = 2
+        Alternating = 2,
+        [Description("Synthetic Stereo (DIBR, Experimental)")]
+        SyntheticDibr = 3,
+        [Description("Synthetic Stereo (DIBR Single View, Experimental)")]
+        SyntheticDibrSingleView = 4
     };
 
     enum SyncedSequentialMethods {
@@ -95,7 +99,9 @@ namespace UEVR {
         public static Dictionary<string, string> RenderingMethodValues = new Dictionary<string, string>(){
             {"0", "Native Stereo" },
             {"1", "Synced Sequential" },
-            {"2", "Alternating/AFR" }
+            {"2", "Alternating/AFR" },
+            {"3", "Synthetic Stereo (DIBR, Experimental)" },
+            {"4", "Synthetic Stereo (DIBR Single View, Experimental)" }
         };
 
         public static Dictionary<string, string> SyncedSequentialMethodValues = new Dictionary<string, string>(){
@@ -122,7 +128,9 @@ namespace UEVR {
         public static string VR_RenderingMethod =
         "Native Stereo: The default, most performant, and best looking rendering method (when it works). Runs through the native UE stereo pipeline. Can cause rendering bugs or crashes on some games.\n" +
         "Synced Sequential: A form of AFR. Can fix many rendering bugs. It is fully synchronized with none of the usual AFR artifacts. Causes TAA/temporal effect ghosting.\n" +
-        "Alternating/AFR: The most basic form of AFR with all of the usual desync/artifacts. Should generally not be used unless the other two are causing issues.";
+        "Alternating/AFR: The most basic form of AFR with all of the usual desync/artifacts. Should generally not be used unless the other two are causing issues.\n" +
+        "Synthetic Stereo (DIBR, Experimental): Uses SceneDepthZ to synthesize the right eye from the left image. D3D12 and OpenXR only; incompatible with Native Stereo Fix, 2D screen mode, and compatibility rendering modes. UE5 currently traces RDG depth candidates before enabling synthesis.\n" +
+        "Synthetic Stereo (DIBR Single View, Experimental): D3D12 and OpenXR only. After it validates the scene family and ordinary DIBR output, it renders one engine view and synthesizes the other. It automatically falls back to two engine views when validation fails.";
 
         public static string VR_SyncedSequentialMethod =
         "Requires \"Synced Sequential\" rendering to be enabled.\n" +
