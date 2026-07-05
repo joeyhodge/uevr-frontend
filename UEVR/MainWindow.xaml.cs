@@ -688,6 +688,22 @@ namespace UEVR {
                 return;
             }
 
+            if (status.Reserved != 0 &&
+                status.Reserved != (uint)m_earlyShaderCaptureProcessId &&
+                EarlyShaderCapture.TryReadStatus((int)status.Reserved, out var childStatus)) {
+                try {
+                    using var child = Process.GetProcessById((int)status.Reserved);
+                    if (string.Equals(
+                            child.ProcessName,
+                            "prospi-Win64-Shipping",
+                            StringComparison.OrdinalIgnoreCase)) {
+                        m_earlyShaderCaptureProcessId = child.Id;
+                        status = childStatus;
+                    }
+                } catch {
+                }
+            }
+
             var state = status.State switch {
                 1 => "waiting for D3D12",
                 2 => "armed before D3D12 device creation",
@@ -1151,13 +1167,17 @@ namespace UEVR {
                 runtimeName = "openvr_api.dll";
             }
 
+            var selectedProcessHasStartupCapture =
+                process.Id == m_earlyShaderCaptureProcessId ||
+                EarlyShaderCapture.TryReadStatus(process.Id, out _);
             if (m_startupShaderCaptureCheckbox.IsChecked == true &&
-                process.Id == m_earlyShaderCaptureProcessId) {
+                selectedProcessHasStartupCapture) {
                 if (!EarlyShaderCapture.PrepareForBackendInjection(process.Id, out var handoffStatus)) {
                     m_startupShaderCaptureStatus.Text = handoffStatus;
                     MessageBox.Show(handoffStatus);
                     return;
                 }
+                m_earlyShaderCaptureProcessId = process.Id;
                 m_startupShaderCaptureStatus.Text = handoffStatus;
             }
 
