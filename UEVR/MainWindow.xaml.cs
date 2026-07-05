@@ -1157,6 +1157,39 @@ namespace UEVR {
                 return;
             }
 
+            if (m_startupShaderCaptureCheckbox.IsChecked == true &&
+                string.Equals(process.ProcessName, "prospi", StringComparison.OrdinalIgnoreCase) &&
+                EarlyShaderCapture.TryReadStatus(process.Id, out var launcherCaptureStatus)) {
+                if (launcherCaptureStatus.Reserved == 0) {
+                    const string waitStatus =
+                        "ProSpi launcher capture is armed; wait for prospi-Win64-Shipping.exe to start.";
+                    m_startupShaderCaptureStatus.Text = waitStatus;
+                    MessageBox.Show(waitStatus);
+                    return;
+                }
+
+                try {
+                    var child = Process.GetProcessById((int)launcherCaptureStatus.Reserved);
+                    if (child.HasExited ||
+                        !string.Equals(
+                            child.ProcessName,
+                            "prospi-Win64-Shipping",
+                            StringComparison.OrdinalIgnoreCase)) {
+                        throw new InvalidOperationException("The propagated ProSpi shipping process is unavailable.");
+                    }
+
+                    process = child;
+                    m_processList[index] = process;
+                    m_processListBox.Items[index] = GenerateProcessName(process);
+                    m_processListBox.SelectedIndex = index;
+                    m_earlyShaderCaptureProcessId = process.Id;
+                } catch(Exception ex) {
+                    m_startupShaderCaptureStatus.Text = ex.Message;
+                    MessageBox.Show(ex.Message);
+                    return;
+                }
+            }
+
             string runtimeName;
 
             if (m_openvrRadio.IsChecked == true) {
