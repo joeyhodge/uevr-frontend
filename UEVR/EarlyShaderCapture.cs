@@ -124,19 +124,25 @@ namespace UEVR {
 
                 // DllMain starts a tiny worker which publishes this mapping before the game is resumed.
                 RegistryStatus helperStatus = default;
-                var mappingReady = false;
-                for (var i = 0; i < 100; ++i) {
+                var mappingSeen = false;
+                var helperArmed = false;
+                for (var i = 0; i < 500; ++i) {
                     if (TryReadStatus((int)processInformation.dwProcessId, out helperStatus)) {
-                        mappingReady = true;
-                        break;
+                        mappingSeen = true;
+                        if (helperStatus.AbiVersion != 1 || helperStatus.State == 5) {
+                            break;
+                        }
+                        if (helperStatus.State == 2 && helperStatus.HooksActive != 0) {
+                            helperArmed = true;
+                            break;
+                        }
                     }
                     Thread.Sleep(10);
                 }
 
-                if (!mappingReady || helperStatus.AbiVersion != 1 || helperStatus.State != 2 ||
-                    helperStatus.HooksActive == 0) {
-                    status = mappingReady
-                        ? $"Shader helper failed to arm (error {helperStatus.LastError})."
+                if (!helperArmed) {
+                    status = mappingSeen
+                        ? $"Shader helper failed to arm (state {helperStatus.State}, error {helperStatus.LastError})."
                         : "Shader helper did not publish readiness before timeout.";
                     return false;
                 }
