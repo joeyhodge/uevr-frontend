@@ -179,5 +179,58 @@ namespace UEVR {
                 return false;
             }
         }
+
+        internal static bool PrepareForBackendInjection(int processId, out string statusText) {
+            statusText = "";
+            if (!TryReadStatus(processId, out var status)) {
+                statusText = "The startup shader helper is no longer available.";
+                return false;
+            }
+
+            if (status.HooksActive == 0) {
+                statusText = $"Startup capture ready: {status.Records} PSOs imported; helper hooks are inactive.";
+                return true;
+            }
+
+            IntPtr helperBase = IntPtr.Zero;
+            try {
+                using var process = Process.GetProcessById(processId);
+                foreach (ProcessModule module in process.Modules) {
+                    if (string.Equals(
+                            module.ModuleName,
+                            "UEVRShaderRegistryBootstrap.dll",
+                            StringComparison.OrdinalIgnoreCase)) {
+                        helperBase = module.BaseAddress;
+                        break;
+                    }
+                }
+            } catch {
+                statusText = "Could not locate the startup shader helper in the target process.";
+                return false;
+            }
+
+            if (helperBase == IntPtr.Zero ||
+                !Injector.CallFunctionNoArgsWithoutDllMain(
+                    processId,
+                    "UEVRShaderRegistryBootstrap.dll",
+                    helperBase,
+                    "UEVRShaderRegistry_Disable")) {
+                statusText = "Could not hand D3D12 hook ownership back before UEVR injection.";
+                return false;
+            }
+
+            // The helper removes its creation hooks and drains in-flight calls
+            // before publishing HooksActive=0.
+            for (var i = 0; i < 250; ++i) {
+                if (TryReadStatus(processId, out status) && status.HooksActive == 0) {
+                    statusText = $"Startup capture ready: {status.Records} PSOs captured; injecting UEVR with clean D3D12 hooks.";
+                    return true;
+                }
+                Thread.Sleep(10);
+            }
+
+            statusText = "Timed out waiting for the startup shader helper to release D3D12 hooks.";
+            return false;
+        }
     }
 }

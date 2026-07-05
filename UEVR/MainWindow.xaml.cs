@@ -1151,6 +1151,16 @@ namespace UEVR {
                 runtimeName = "openvr_api.dll";
             }
 
+            if (m_startupShaderCaptureCheckbox.IsChecked == true &&
+                process.Id == m_earlyShaderCaptureProcessId) {
+                if (!EarlyShaderCapture.PrepareForBackendInjection(process.Id, out var handoffStatus)) {
+                    m_startupShaderCaptureStatus.Text = handoffStatus;
+                    MessageBox.Show(handoffStatus);
+                    return;
+                }
+                m_startupShaderCaptureStatus.Text = handoffStatus;
+            }
+
             if (m_nullifyVRPluginsCheckbox.IsChecked == true) {
                 IntPtr nullifierBase;
                 if (Injector.InjectDll(process.Id, "UEVRPluginNullifier.dll", out nullifierBase) && nullifierBase.ToInt64() > 0) {

@@ -151,6 +151,9 @@ namespace UEVR {
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern IntPtr LoadLibrary(string lpFileName);
 
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
+        public static extern IntPtr LoadLibraryEx(string lpFileName, IntPtr hFile, uint dwFlags);
+
         // FreeLibrary
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Auto)]
         public static extern bool FreeLibrary(IntPtr hModule);
@@ -194,6 +197,61 @@ namespace UEVR {
             }
 
             return true;
+        }
+
+        public static bool CallFunctionNoArgsWithoutDllMain(
+            int processId,
+            string dllPath,
+            IntPtr dllBase,
+            string functionName,
+            uint timeoutMs = 5000) {
+            var fullPath = Path.IsPathRooted(dllPath)
+                ? dllPath
+                : Path.Combine(AppContext.BaseDirectory, dllPath);
+            var localDllHandle = LoadLibraryEx(fullPath, IntPtr.Zero, 0x00000001); // DONT_RESOLVE_DLL_REFERENCES
+            if (localDllHandle == IntPtr.Zero) {
+                return false;
+            }
+
+            IntPtr processHandle = IntPtr.Zero;
+            IntPtr threadHandle = IntPtr.Zero;
+            try {
+                var localVa = GetProcAddress(localDllHandle, functionName);
+                if (localVa == IntPtr.Zero) {
+                    return false;
+                }
+
+                processHandle = OpenProcess(0x1F0FFF, false, processId);
+                if (processHandle == IntPtr.Zero) {
+                    return false;
+                }
+
+                var rva = localVa.ToInt64() - localDllHandle.ToInt64();
+                var functionAddress = new IntPtr(dllBase.ToInt64() + rva);
+                threadHandle = CreateRemoteThread(
+                    processHandle,
+                    IntPtr.Zero,
+                    0,
+                    functionAddress,
+                    IntPtr.Zero,
+                    0,
+                    IntPtr.Zero);
+                if (threadHandle == IntPtr.Zero) {
+                    return false;
+                }
+
+                return WaitForSingleObject(threadHandle, timeoutMs) == 0 &&
+                    GetExitCodeThread(threadHandle, out var exitCode) &&
+                    exitCode != 0;
+            } finally {
+                if (threadHandle != IntPtr.Zero) {
+                    CloseHandle(threadHandle);
+                }
+                if (processHandle != IntPtr.Zero) {
+                    CloseHandle(processHandle);
+                }
+                FreeLibrary(localDllHandle);
+            }
         }
     }
 }
