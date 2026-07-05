@@ -27,6 +27,9 @@ namespace UEVR {
         public static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, uint dwSize, uint flAllocationType, uint flProtect);
 
         [DllImport("kernel32.dll", SetLastError = true)]
+        public static extern bool VirtualFreeEx(IntPtr hProcess, IntPtr lpAddress, UIntPtr dwSize, uint dwFreeType);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
         public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, byte[] lpBuffer, uint nSize, out int lpNumberOfBytesWritten);
 
         [DllImport("kernel32.dll")]
@@ -76,39 +79,51 @@ namespace UEVR {
             IntPtr loadLibraryAddress = GetProcAddress(GetModuleHandle("kernel32.dll"), "LoadLibraryW");
 
             if (loadLibraryAddress == IntPtr.Zero) {
+                CloseHandle(processHandle);
                 MessageBox.Show("Could not obtain LoadLibraryW address in the target process.");
                 return false;
             }
 
             // Allocate memory in the target process for the DLL path
-            IntPtr dllPathAddress = VirtualAllocEx(processHandle, IntPtr.Zero, (uint)fullPath.Length, 0x1000, 0x40);
+            var bytes = Encoding.Unicode.GetBytes(fullPath + "\0");
+            IntPtr dllPathAddress = VirtualAllocEx(processHandle, IntPtr.Zero, (uint)bytes.Length, 0x3000, 0x04);
 
             if (dllPathAddress == IntPtr.Zero) {
+                CloseHandle(processHandle);
                 MessageBox.Show("Failed to allocate memory in the target process.");
                 return false;
             }
 
             // Write the DLL path in UTF-16
             int bytesWritten = 0;
-            var bytes = Encoding.Unicode.GetBytes(fullPath);
-            WriteProcessMemory(processHandle, dllPathAddress, bytes, (uint)(fullPath.Length * 2), out bytesWritten);
+            if (!WriteProcessMemory(processHandle, dllPathAddress, bytes, (uint)bytes.Length, out bytesWritten) ||
+                bytesWritten != bytes.Length) {
+                VirtualFreeEx(processHandle, dllPathAddress, UIntPtr.Zero, 0x8000);
+                CloseHandle(processHandle);
+                MessageBox.Show("Failed to write the DLL path into the target process.");
+                return false;
+            }
 
             // Create a remote thread in the target process that calls LoadLibrary with the DLL path
             IntPtr threadHandle = CreateRemoteThread(processHandle, IntPtr.Zero, 0, loadLibraryAddress, dllPathAddress, 0, IntPtr.Zero);
 
             if (threadHandle == IntPtr.Zero) {
+                VirtualFreeEx(processHandle, dllPathAddress, UIntPtr.Zero, 0x8000);
+                CloseHandle(processHandle);
                 MessageBox.Show("Failed to create remote thread in the target processs.");
                 return false;
             }
 
-            WaitForSingleObject(threadHandle, 1000);
-
-            Process p = Process.GetProcessById(processId);
+            var waitResult = WaitForSingleObject(threadHandle, 10000);
+            var remoteLoadSucceeded = waitResult == 0 && GetExitCodeThread(threadHandle, out var remoteExitCode) &&
+                remoteExitCode != 0;
 
             // Get base of DLL that was just injected
-            if (p != null) try {
+            if (waitResult == 0) try {
+                using var p = Process.GetProcessById(processId);
                 foreach (ProcessModule module in p.Modules) {
-                    if (module.FileName != null && module.FileName == fullPath) {
+                    if (module.FileName != null &&
+                        string.Equals(Path.GetFullPath(module.FileName), fullPath, StringComparison.OrdinalIgnoreCase)) {
                         dllBase = module.BaseAddress;
                         break;
                     }
@@ -118,7 +133,14 @@ namespace UEVR {
                 MessageBox.Show($"Exception while injecting: {ex}");
             }
 
-            return true;
+            CloseHandle(threadHandle);
+            // A timed-out remote thread may still be reading this path.
+            // Leak the small allocation rather than introducing a target-process UAF.
+            if (waitResult == 0) {
+                VirtualFreeEx(processHandle, dllPathAddress, UIntPtr.Zero, 0x8000);
+            }
+            CloseHandle(processHandle);
+            return remoteLoadSucceeded;
         }
 
         public static bool InjectDll(int processId, string dllPath) {

@@ -32,6 +32,7 @@ using static UEVR.SharedMemory;
 using System.Threading.Channels;
 using System.Security.Principal;
 using System.Windows.Media.Animation;
+using Microsoft.Win32;
 
 namespace UEVR {
     class GameSettingEntry : INotifyPropertyChanged {
@@ -182,6 +183,7 @@ namespace UEVR {
         private ExecutableFilter m_executableFilter = new ExecutableFilter();
         private string? m_commandLineAttachExe = null;
         private bool m_ignoreFutureVDWarnings = false;
+        private int m_earlyShaderCaptureProcessId = 0;
 
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         public static extern void SwitchToThisWindow(IntPtr hWnd, bool fAltTab);
@@ -220,6 +222,9 @@ namespace UEVR {
             m_nullifyVRPluginsCheckbox.IsChecked = m_mainWindowSettings.NullifyVRPluginsCheckbox;
             m_ignoreFutureVDWarnings = m_mainWindowSettings.IgnoreFutureVDWarnings;
             m_focusGameOnInjectionCheckbox.IsChecked = m_mainWindowSettings.FocusGameOnInjection;
+            m_startupShaderCaptureCheckbox.IsChecked = m_mainWindowSettings.StartupShaderCaptureEnabled;
+            m_startupShaderExecutableTextBox.Text = m_mainWindowSettings.StartupShaderCaptureExecutable;
+            UpdateStartupShaderCaptureControls();
 
             m_updateTimer.Tick += (sender, e) => Dispatcher.Invoke(MainWindow_Update);
             m_updateTimer.Start();
@@ -598,6 +603,7 @@ namespace UEVR {
         private void MainWindow_Update() {
             Update_InjectorConnectionStatus();
             Update_InjectStatus();
+            UpdateStartupShaderCaptureStatus();
 
             if (m_virtualDesktopChecked == false) {
                 m_virtualDesktopChecked = true;
@@ -611,8 +617,90 @@ namespace UEVR {
             m_mainWindowSettings.NullifyVRPluginsCheckbox = m_nullifyVRPluginsCheckbox.IsChecked == true;
             m_mainWindowSettings.IgnoreFutureVDWarnings = m_ignoreFutureVDWarnings;
             m_mainWindowSettings.FocusGameOnInjection = m_focusGameOnInjectionCheckbox.IsChecked == true;
+            m_mainWindowSettings.StartupShaderCaptureEnabled = m_startupShaderCaptureCheckbox.IsChecked == true;
+            m_mainWindowSettings.StartupShaderCaptureExecutable = m_startupShaderExecutableTextBox.Text;
 
             m_mainWindowSettings.Save();
+        }
+
+        private void StartupShaderCapture_Changed(object sender, RoutedEventArgs e) {
+            UpdateStartupShaderCaptureControls();
+        }
+
+        private void UpdateStartupShaderCaptureControls() {
+            if (m_armStartupShaderCaptureButton == null) {
+                return;
+            }
+
+            var enabled = m_startupShaderCaptureCheckbox.IsChecked == true;
+            m_armStartupShaderCaptureButton.IsEnabled = enabled;
+            if (!enabled) {
+                m_startupShaderCaptureStatus.Text = "Disabled. Normal UEVR injection is unchanged.";
+            }
+        }
+
+        private void BrowseStartupShaderExecutable_Clicked(object sender, RoutedEventArgs e) {
+            var dialog = new OpenFileDialog {
+                DefaultExt = ".exe",
+                Filter = "Game executables (*.exe)|*.exe",
+                CheckFileExists = true,
+                Multiselect = false,
+            };
+
+            if (!string.IsNullOrWhiteSpace(m_startupShaderExecutableTextBox.Text)) {
+                try {
+                    dialog.InitialDirectory = System.IO.Path.GetDirectoryName(m_startupShaderExecutableTextBox.Text);
+                } catch {
+                }
+            }
+
+            if (dialog.ShowDialog() == true) {
+                m_startupShaderExecutableTextBox.Text = dialog.FileName;
+                m_mainWindowSettings.StartupShaderCaptureExecutable = dialog.FileName;
+                m_mainWindowSettings.Save();
+            }
+        }
+
+        private void ArmStartupShaderCapture_Clicked(object sender, RoutedEventArgs e) {
+            if (m_startupShaderCaptureCheckbox.IsChecked != true) {
+                return;
+            }
+
+            m_armStartupShaderCaptureButton.IsEnabled = false;
+            try {
+                if (!EarlyShaderCapture.ArmAndLaunch(
+                        m_startupShaderExecutableTextBox.Text, out var process, out var status)) {
+                    m_startupShaderCaptureStatus.Text = status;
+                    return;
+                }
+
+                m_earlyShaderCaptureProcessId = process?.Id ?? 0;
+                m_startupShaderCaptureStatus.Text = status;
+                FillProcessList();
+            } finally {
+                m_armStartupShaderCaptureButton.IsEnabled = true;
+            }
+        }
+
+        private void UpdateStartupShaderCaptureStatus() {
+            if (m_earlyShaderCaptureProcessId == 0 ||
+                !EarlyShaderCapture.TryReadStatus(m_earlyShaderCaptureProcessId, out var status)) {
+                return;
+            }
+
+            var state = status.State switch {
+                1 => "waiting for D3D12",
+                2 => "armed before D3D12 device creation",
+                3 => "capturing",
+                4 => "disabled",
+                5 => "error",
+                _ => "starting",
+            };
+            var mib = status.RetainedBytes / (1024.0 * 1024.0);
+            m_startupShaderCaptureStatus.Text =
+                $"{state}: {status.Records} PSOs ({status.GraphicsPipelines} graphics, " +
+                $"{status.ComputePipelines} compute, {status.PipelineStreams} streams), " +
+                $"{status.UniqueShaders} unique shaders, {mib:F1} MiB, {status.DroppedRecords} dropped.";
         }
 
         private string m_lastDisplayedWarningProcess = "";

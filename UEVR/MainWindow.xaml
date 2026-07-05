@@ -162,6 +162,29 @@
                         </StackPanel>
                     </GroupBox>
                 </StackPanel>
+                <Expander Header="Advanced startup diagnostics" IsExpanded="False">
+                    <GroupBox Header="Pre-Injection Shader/PSO Registry (D3D12)">
+                        <StackPanel>
+                            <CheckBox x:Name="m_startupShaderCaptureCheckbox"
+                                      Content="Capture startup shaders/PSOs"
+                                      Checked="StartupShaderCapture_Changed"
+                                      Unchecked="StartupShaderCapture_Changed"/>
+                            <DockPanel LastChildFill="True">
+                                <Button DockPanel.Dock="Right" Content="Browse..." Click="BrowseStartupShaderExecutable_Clicked"/>
+                                <TextBox x:Name="m_startupShaderExecutableTextBox"
+                                         MinWidth="500"
+                                         IsReadOnly="True"
+                                         ToolTip="Exact shipping game executable to launch suspended"/>
+                            </DockPanel>
+                            <Button x:Name="m_armStartupShaderCaptureButton"
+                                    Content="Arm Early Capture and Launch"
+                                    Click="ArmStartupShaderCapture_Clicked"/>
+                            <TextBlock x:Name="m_startupShaderCaptureStatus"
+                                       TextWrapping="Wrap"
+                                       Text="Disabled. Normal UEVR injection is unchanged."/>
+                        </StackPanel>
+                    </GroupBox>
+                </Expander>
                 <GroupBox Header="Game Settings" ClipToBounds="True">
                     <ListView x:Name="m_iniListView" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" MaxHeight="640">
                         <ListView.Resources>

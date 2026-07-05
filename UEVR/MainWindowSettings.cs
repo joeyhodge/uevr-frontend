@@ -42,5 +42,19 @@ namespace UEVR {
             get { return (bool)this["FocusGameOnInjection"]; }
             set { this["FocusGameOnInjection"] = value; }
         }
+
+        [UserScopedSettingAttribute()]
+        [DefaultSettingValueAttribute("false")]
+        public bool StartupShaderCaptureEnabled {
+            get { return (bool)this["StartupShaderCaptureEnabled"]; }
+            set { this["StartupShaderCaptureEnabled"] = value; }
+        }
+
+        [UserScopedSettingAttribute()]
+        [DefaultSettingValueAttribute("")]
+        public string StartupShaderCaptureExecutable {
+            get { return (string)this["StartupShaderCaptureExecutable"]; }
+            set { this["StartupShaderCaptureExecutable"] = value; }
+        }
     }
 }
