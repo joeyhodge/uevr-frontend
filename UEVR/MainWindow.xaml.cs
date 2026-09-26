@@ -86,7 +86,9 @@ namespace UEVR {
         [Description("Synthetic Stereo (DIBR, Experimental)")]
         SyntheticDibr = 3,
         [Description("Synthetic Stereo (DIBR Single View, Experimental)")]
-        SyntheticDibrSingleView = 4
+        SyntheticDibrSingleView = 4,
+        [Description("Mono (Experimental)")]
+        Mono = RenderingModeOptions.Mono
     };
 
     enum SyncedSequentialMethods {
@@ -96,13 +98,7 @@ namespace UEVR {
 
     class ComboMapping {
 
-        public static Dictionary<string, string> RenderingMethodValues = new Dictionary<string, string>(){
-            {"0", "Native Stereo" },
-            {"1", "Synced Sequential" },
-            {"2", "Alternating/AFR" },
-            {"3", "Synthetic Stereo (DIBR, Experimental)" },
-            {"4", "Synthetic Stereo (DIBR Single View, Experimental)" }
-        };
+        public static Dictionary<string, string> RenderingMethodValues = RenderingModeOptions.Create(supportsDibr: true);
 
         public static Dictionary<string, string> SyncedSequentialMethodValues = new Dictionary<string, string>(){
             {"0", "Skip Tick" },
@@ -130,7 +126,8 @@ namespace UEVR {
         "Synced Sequential: A form of AFR. Can fix many rendering bugs. It is fully synchronized with none of the usual AFR artifacts. Causes TAA/temporal effect ghosting.\n" +
         "Alternating/AFR: The most basic form of AFR with all of the usual desync/artifacts. Should generally not be used unless the other two are causing issues.\n" +
         "Synthetic Stereo (DIBR, Experimental): Uses SceneDepthZ to synthesize the right eye from the left image. D3D12 and OpenXR only; incompatible with Native Stereo Fix, 2D screen mode, and compatibility rendering modes. UE5 currently traces RDG depth candidates before enabling synthesis.\n" +
-        "Synthetic Stereo (DIBR Single View, Experimental): D3D12 and OpenXR only. After it validates the scene family and ordinary DIBR output, it renders one engine view and synthesizes the other. It automatically falls back to two engine views when validation fails.";
+        "Synthetic Stereo (DIBR Single View, Experimental): D3D12 and OpenXR only. After it validates the scene family and ordinary DIBR output, it renders one engine view and synthesizes the other. It automatically falls back to two engine views when validation fails.\n" +
+        "Mono (Experimental): One centered head-tracked scene sent to both eyes, without binocular scene depth. DX11/DX12 with OpenXR and parallel optical axes. Native Fix, Ghost Fix/bootstrap and depth submission are inactive without changing their saved preferences. Live switching waits for GPU copies to retire and a fresh main view; incompatible compatibility settings are reported in the in-game UI.";
 
         public static string VR_SyncedSequentialMethod =
         "Requires \"Synced Sequential\" rendering to be enabled.\n" +
@@ -833,7 +830,9 @@ namespace UEVR {
                     if (ComboMapping.KeyEnums.ContainsKey(kv.Key)) {
                         var valueList = ComboMapping.KeyEnums[kv.Key];
 
-                        if (valueList != null && valueList.ContainsKey(kv.Value)) {
+                        if (kv.Key == "VR_RenderingMethod" && valueList != null) {
+                            comboValues = RenderingModeOptions.PreserveValue(valueList, kv.Value);
+                        } else if (valueList != null && valueList.ContainsKey(kv.Value)) {
                             comboValues = valueList;
                         }
                     }

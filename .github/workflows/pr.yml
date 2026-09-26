@@ -10,6 +10,7 @@ jobs:
       - uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 6.0.x
+      - run: dotnet run --project tests/RenderingModes --configuration Release
       - run: dotnet publish --configuration Release
 
       - name: Compress release
